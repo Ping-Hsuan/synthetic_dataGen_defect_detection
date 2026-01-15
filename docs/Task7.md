@@ -50,13 +50,15 @@ Where:
 
 **Interpretation:**
 - **Higher IS = Better:** More confident predictions + diverse samples
-- **IS > 3.0:** Good for small-dataset scenarios
-- **IS < 2.0:** Low quality or mode collapse
+- **IS > 3.0:** Good for multi-object datasets (faces, animals, vehicles)
+- **IS 1.5-2.5:** Expected for single-object datasets (all bottles)
+- **IS < 1.5:** Possible mode collapse or extremely low quality
 
 **Limitations:**
 - InceptionV3 trained on ImageNet (not defect-specific)
-- May not capture defect authenticity
-- Use as supplementary metric only
+- **For single-object defect datasets (all bottles): IS will be naturally low (1.5-2.5) and is not meaningful**
+- All images classified as "bottle" -> low diversity in ImageNet space -> low IS (expected, not a problem)
+- IS measures object-level diversity, not defect-level diversity
 
 ---
 
