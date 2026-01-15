@@ -45,7 +45,7 @@ def make_dataloader(
     prefetch_factor: Optional[int] = 2,
 ) -> DataLoader:
     """
-    Create optimized DataLoader for single-process training.
+    Create DataLoader for single-process training.
 
     Args:
         dataset: PyTorch Dataset (e.g., DefectSpectrumLocalDataset)
@@ -56,23 +56,6 @@ def make_dataloader(
         drop_last: Drop incomplete final batch
         prefetch_factor: Number of batches to prefetch per worker (None for default)
 
-    Performance notes:
-      - num_workers: Start with 4-8, increase until CPU saturated (monitor with htop)
-      - persistent_workers: Keeps workers alive between epochs (reduces overhead)
-      - prefetch_factor: Controls how many batches each worker prefetches
-      - pin_memory: Mainly benefits CUDA GPUs; minimal overhead on CPU/MPS
-
-    Example:
-        >>> from src.data.defect_spectrum_local import DefectSpectrumLocalDataset, LocalDatasetConfig
-        >>> cfg = LocalDatasetConfig(
-        ...     product_classes=["zipper"],
-        ...     max_samples_per_damage_type=10,
-        ...     load_masks=True,
-        ... )
-        >>> dataset = DefectSpectrumLocalDataset("Defect_Spectrum", cfg)
-        >>> loader = make_dataloader(dataset, batch_size=8, num_workers=4)
-        >>> batch = next(iter(loader))
-        >>> print(batch["pixel_values"].shape)  # [8, 3, 512, 512]
     """
     persistent_workers = num_workers > 0
     if prefetch_factor is None:
@@ -180,99 +163,3 @@ def make_distributed_dataloader(
         prefetch_factor=prefetch_factor,
     )
     return loader, sampler
-
-
-def create_stratified_splits(
-    dataset: Dataset,
-    train_ratio: float = 0.8,
-    seed: int = 42,
-) -> Tuple[Subset, Subset]:
-    """
-    Create stratified train/val splits ensuring all damage types are represented.
-    
-    For few-shot learning with limited samples per class, stratified splitting is
-    critical to ensure every class appears in both training and validation sets.
-    
-    Args:
-        dataset: DefectSpectrumLocalDataset instance with 'samples' attribute
-        train_ratio: Proportion of data for training (0.0-1.0)
-        seed: Random seed for reproducibility
-    
-    Returns:
-        train_dataset: Subset containing training samples
-        val_dataset: Subset containing validation samples
-    
-    Example:
-        >>> from src.data.defect_spectrum_local import DefectSpectrumLocalDataset, LocalDatasetConfig
-        >>> cfg = LocalDatasetConfig(
-        ...     product_classes=["cable"],
-        ...     max_samples_per_damage_type=10,
-        ...     load_masks=False,
-        ... )
-        >>> dataset = DefectSpectrumLocalDataset("Defect_Spectrum", cfg)
-        >>> train_ds, val_ds = create_stratified_splits(dataset, train_ratio=0.8)
-        >>> 
-        >>> # Result: 9 classes × 10 samples = 90 total
-        >>> # Train: ~72 samples (8 per class)
-        >>> # Val: ~18 samples (2 per class)
-        >>> 
-        >>> train_loader = make_dataloader(train_ds, batch_size=4, shuffle=True)
-        >>> val_loader = make_dataloader(val_ds, batch_size=4, shuffle=False)
-    
-    Note:
-        Requires scikit-learn: pip install scikit-learn
-    """
-    try:
-        from sklearn.model_selection import train_test_split
-    except ImportError:
-        raise ImportError(
-            "scikit-learn is required for stratified splitting. "
-            "Install it with: pip install scikit-learn"
-        )
-    
-    # Extract damage type labels from dataset
-    indices = np.arange(len(dataset))
-    labels = [dataset.samples[i]['damage_type'] for i in indices]
-    
-    # Stratified split maintains class proportions
-    train_idx, val_idx = train_test_split(
-        indices,
-        train_size=train_ratio,
-        stratify=labels,  # Ensures each class split proportionally
-        random_state=seed,
-    )
-    
-    # Create subsets
-    train_dataset = Subset(dataset, train_idx)
-    val_dataset = Subset(dataset, val_idx)
-    
-    # Print split summary
-    print(f"\n{'='*80}")
-    print("Stratified Split Summary")
-    print(f"{'='*80}")
-    print(f"Total samples: {len(dataset)}")
-    print(f"Train: {len(train_dataset)} samples ({train_ratio*100:.0f}%)")
-    print(f"Val: {len(val_dataset)} samples ({(1-train_ratio)*100:.0f}%)")
-    
-    # Verify class distribution
-    from collections import Counter
-    train_labels = [dataset.samples[i]['damage_type'] for i in train_idx]
-    val_labels = [dataset.samples[i]['damage_type'] for i in val_idx]
-    
-    train_dist = Counter(train_labels)
-    val_dist = Counter(val_labels)
-    
-    print(f"\nClass distribution:")
-    print(f"{'Damage Type':<25} {'Train':<10} {'Val':<10}")
-    print(f"{'-'*45}")
-    
-    all_classes = sorted(set(labels))
-    for damage_type in all_classes:
-        train_count = train_dist.get(damage_type, 0)
-        val_count = val_dist.get(damage_type, 0)
-        print(f"{damage_type:<25} {train_count:<10} {val_count:<10}")
-    
-    print(f"\n✓ All {len(all_classes)} classes present in both splits")
-    print(f"{'='*80}\n")
-    
-    return train_dataset, val_dataset
