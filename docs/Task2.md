@@ -67,17 +67,12 @@ A) Without mask conditioned
 
 B) With mask-conditioned
 - Goal: add explicit spatial control so the model learns "where" defects appear.
-- 1. Inpainting: use the StableDiffusionInpaintPipeline (or adapt the SD v1.5 UNet) and fine-tune for masked-region synthesis/repair.
-  - Data prep: produce (masked_image, mask, target_image) tuples at `resolution` (mask: binary; masked_image = original with masked region filled with a neutral color or blurred background). Apply identical geometric augmentations to image and mask.
-  - Training recipe:
-     - Load `StableDiffusionInpaintPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")`, freeze the VAE, and attach LoRA adapters to the UNet attention layers.
-     - Condition on class embeddings as in v3 (replace text encoder with `nn.Embedding` outputs passed to `encoder_hidden_states`).
-     - Forward pass: encode `masked_image` with VAE to latents, add diffusion noise, and train UNet to predict the noise using the mask as auxiliary input (inpainting pipeline APIs accept `masked_image` + `mask`).
-     - Loss: standard MSE noise prediction loss; optionally weight losses inside masked region higher and add L1/perceptual loss on reconstructed masked region.
-  - Hyperparameters (practical): adapter LoRA rank `r=4–8`, adapter LR `1e-4`, epochs `10–30`, batch size `2–4` (mask batches may be smaller), mixed precision `fp16`.
-  - Tips: keep VAE frozen (or fp32), augment masks conservatively, monitor masked-region IoU/Dice and visual samples frequently, and freeze embeddings/LoRA if training a separate inpainting adapter later.
-- 2. ControlNet-style adapter (recommended): attach a small ControlNet module trained to condition on masks (or processed mask features).
-  - Two-stage recommended:
-       a. Stage 1 — Train `nn.Embedding` + UNet LoRA until class semantics are stable (20–40 epochs).
-       b. Stage 2 — Freeze Stage 1 weights; attach ControlNet adapter and train it (adapter LR 1e-4, r=4–8) for 10–30 epochs.
-  - Benefits: clean separation of "what" (embeddings/LoRA) and "where" (adapter), faster adapter convergence, less catastrophic interference.
+     1. Inpainting (SD v1.5)
+         - Purpose: masked-region synthesis / repair where the mask indicates the area to modify.
+         - Data: aligned (masked_image, mask, target) tuples at 512 resolution; apply same geometric augments to images and masks.
+        - Train: load `StableDiffusionInpaintPipeline` (SD v1.5), freeze VAE, attach LoRA to the UNet, pass `masked_image` and `mask` into the pipeline (mask used as spatial conditioning), provide `nn.Embedding` via `encoder_hidden_states`, and train with the standard MSE noise-prediction loss.
+
+     2. ControlNet-style adapter 
+         - Purpose: condition generation on spatial masks without changing UNet input channels.
+         - Workflow: two-stage training — (A) train `nn.Embedding` + UNet LoRA until model's class-conditional behaviors are stable; (B) freeze those weights and train the ControlNet adapter on (image, mask) pairs.
+         - Benefits: separates "what" (class semantics) from "where" (spatial control), faster convergence, and lower risk of interference.
