@@ -33,10 +33,7 @@ Where:
 - **FID 50-100:** Acceptable for data augmentation
 - **FID > 100:** Poor quality, significant distribution mismatch
 
-**Implementation Considerations:**
-- Requires ≥50 samples per class for stable estimation
-- Use same preprocessing as training (512×512, normalized)
-- Compare per-class FID for defect-specific evaluation
+**Note:** FID requires $\ge50$ samples per class for stable estimates. Since our dataset has only $\approx20$ samples per class, we'll experience higher FID variance. To mitigate this, generate 100 synthetic samples per class (keeping one side stable) and consider computing FID on all 83 samples combined rather than per-class for better stability. 
 
 ### 1.2 Inception Score (IS)
 
