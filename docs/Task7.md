@@ -55,10 +55,7 @@ Where:
 - **IS < 1.5:** Possible mode collapse or extremely low quality
 
 **Limitations:**
-- InceptionV3 trained on ImageNet (not defect-specific)
-- **For single-object defect datasets (all bottles): IS will be naturally low (1.5-2.5) and is not meaningful**
-- All images classified as "bottle" -> low diversity in ImageNet space -> low IS (expected, not a problem)
-- IS measures object-level diversity, not defect-level diversity
+InceptionV3 is trained on ImageNet (not defect-specific) and measures object-level diversity, not defect-level diversity. **For single-object defect datasets like ours (all bottles), IS will be naturally low (1.5-2.5) and is not meaningful.** Since all images are classified as "bottle," there is low diversity in ImageNet space, resulting in low IS scores. This is expected and not a problem - use DDA (Defect Detection Accuracy) as the primary metric instead.
 
 ---
 
