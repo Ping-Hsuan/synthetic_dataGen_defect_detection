@@ -90,16 +90,7 @@ Effect:
 
 This acts as a **hard pixel-level constraint**, not a learned one.
 
----
-
-### Handling the `good` Class
-
-- `good` samples contain no defect
-- Therefore, no segmentation mask exists
-- Inpainting is bypassed (or an all-zero mask is used)
-- Clean images are kept unchanged (or lightly augmented)
-
-This avoids corrupting clean data and reflects realistic industrial workflows.
+**Note on the `good` damage type:** Samples labeled as good contain no defects and therefore have no associated segmentation mask. In these cases, inpainting is bypassed
 
 ---
 
@@ -107,7 +98,6 @@ This avoids corrupting clean data and reflects realistic industrial workflows.
 
 - Strong spatial localization
 - Guaranteed preservation of product geometry
-- Highly sample-efficient
 - Minimal hallucination outside defect regions
 - Simple and stable training pipeline
 
